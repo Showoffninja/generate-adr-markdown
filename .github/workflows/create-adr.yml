@@ -5,6 +5,9 @@ on:
     types:
       - labeled
 
+permissions:
+  contents: write
+
 jobs:
   create-adr:
     runs-on: ubuntu-latest
