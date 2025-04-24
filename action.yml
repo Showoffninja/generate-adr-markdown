@@ -2,6 +2,10 @@ name: "Generate ADR Markdown"
 description: "Convert issues with a specific label into Architectural Decision Record (ADR) markdown files upon issue closure."
 author: "Showoffninja"
 inputs:
+  github_token:
+    description: "GitHub token for API authentication"
+    required: false
+    default: ${{ github.token }}
   label_name:
     description: "The label that identifies issues to be converted into ADRs."
     required: true

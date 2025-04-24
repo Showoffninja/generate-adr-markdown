@@ -94,12 +94,72 @@ ${issue.body}
     fs.writeFileSync(filePath, adrContent.trim());
     core.info(`ADR file created: ${filePath}`);
 
-    // Commit and push the ADR file
-    execSync('git config user.name "github-actions[bot]"');
-    execSync('git config user.email "github-actions[bot]@users.noreply.github.com"');
-    execSync(`git add ${destinationFolder}`);
-    execSync(`git commit -m "Add ADR #${issue.number}: ${issue.title}"`);
-    execSync('git push');
+    // Replace the Git commands with GitHub API calls
+    const token = core.getInput('github_token') || process.env.GITHUB_TOKEN;
+    if (!token) {
+      core.setFailed('No GitHub token provided. Please set the GITHUB_TOKEN secret.');
+      return;
+    }
+
+    const octokit = github.getOctokit(token);
+    const { owner, repo } = github.context.repo;
+
+    // Get the current commit SHA to use as a base
+    const { data: refData } = await octokit.rest.git.getRef({
+      owner,
+      repo,
+      ref: 'heads/main'
+    });
+    const baseSha = refData.object.sha;
+
+    // Get the current tree
+    const { data: commitData } = await octokit.rest.git.getCommit({
+      owner,
+      repo,
+      commit_sha: baseSha
+    });
+    const treeSha = commitData.tree.sha;
+
+    // Create a blob with the new file content
+    const { data: blobData } = await octokit.rest.git.createBlob({
+      owner,
+      repo,
+      content: Buffer.from(adrContent.trim()).toString('base64'),
+      encoding: 'base64'
+    });
+
+    // Create a new tree with the new file
+    const { data: newTreeData } = await octokit.rest.git.createTree({
+      owner,
+      repo,
+      base_tree: treeSha,
+      tree: [
+        {
+          path: path.join(destinationFolder, adrStatus, fileName),
+          mode: '100644',
+          type: 'blob',
+          sha: blobData.sha
+        }
+      ]
+    });
+
+    // Create a new commit
+    const { data: newCommitData } = await octokit.rest.git.createCommit({
+      owner,
+      repo,
+      message: `Add ADR #${issue.number}: ${issue.title}`,
+      tree: newTreeData.sha,
+      parents: [baseSha]
+    });
+
+    // Update the reference
+    await octokit.rest.git.updateRef({
+      owner,
+      repo,
+      ref: 'heads/main',
+      sha: newCommitData.sha
+    });
+
     core.info(`ADR file committed and pushed: ${filePath}`);
   } catch (error) {
     if (error instanceof Error) {
