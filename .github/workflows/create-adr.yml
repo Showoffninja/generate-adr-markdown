@@ -1,0 +1,21 @@
+name: Generate ADR Markdown
+
+on:
+  issues:
+    types:
+      - labeled
+
+jobs:
+  create-adr:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Generate ADR Markdown
+        uses: ./ # Local action in the repository
+        with:
+          label_name: "ADR"
+          destination_folder: "adr-files"
+          adr_status: "proposed"

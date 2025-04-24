@@ -1,0 +1,24 @@
+name: "Generate ADR Markdown"
+description: "Convert issues with a specific label into Architectural Decision Record (ADR) markdown files upon issue closure."
+author: "Showoffninja"
+inputs:
+  label_name:
+    description: "The label that identifies issues to be converted into ADRs."
+    required: true
+  destination_folder:
+    description: "The folder where ADR markdown files will be stored."
+    required: true
+    default: "adr-files"
+  adr_status:
+    description: "The status of the ADR (accepted, proposed, or rejected). Default is proposed."
+    required: false
+    default: "proposed"
+runs:
+  using: "node16"
+  main: "dist/main.js"
+permissions:
+  issues: write
+  contents: write
+branding:
+  color: "blue"
+  icon: "file"
