@@ -89,7 +89,7 @@ async function run() {
 
     // Prepare ADR content with specific form fields
     const adrContent = `
-# ADR: ${issue.title}
+# ${issue.title}
 
 ## Status
 ${adrStatus.charAt(0).toUpperCase() + adrStatus.slice(1)}

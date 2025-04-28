@@ -1,7 +1,7 @@
 name: Architectural Decision Record
 description: Propose a new architectural decision
 title: "[ADR]: "
-labels: ["adr"]
+labels: ["ADR"]
 body:
   - type: markdown
     attributes:
