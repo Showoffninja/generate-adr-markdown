@@ -90,6 +90,44 @@ function getNextSequenceNumber(folder) {
     // Format the sequence number as a 4-digit string
     return nextNumber.toString().padStart(4, '0');
 }
+function getContributors(octokit, issue) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const { owner, repo } = github.context.repo;
+        const issueNumber = issue.number;
+        const contributors = new Set();
+        // Add the issue creator
+        contributors.add(issue.user.login);
+        // Get comments on the issue
+        try {
+            const { data: comments } = yield octokit.rest.issues.listComments({
+                owner,
+                repo,
+                issue_number: issueNumber,
+            });
+            // Add comment authors
+            comments.forEach((comment) => {
+                contributors.add(comment.user.login);
+            });
+            // Get timeline events to see edits
+            const { data: timeline } = yield octokit.rest.issues.listEventsForTimeline({
+                owner,
+                repo,
+                issue_number: issueNumber,
+            });
+            // Add users who edited the issue
+            timeline.forEach((event) => {
+                if (event.event === 'edited' && event.actor) {
+                    contributors.add(event.actor.login);
+                }
+            });
+            return Array.from(contributors);
+        }
+        catch (error) {
+            core.warning('Failed to fetch complete contributor information');
+            return Array.from(contributors);
+        }
+    });
+}
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
@@ -119,14 +157,26 @@ function run() {
             const statusFolder = path.join(destinationFolder, adrStatus);
             // Determine the next sequence number
             const nextSequenceNumber = getNextSequenceNumber(statusFolder);
+            // Initialize Octokit with the GitHub token
+            const token = core.getInput('github_token') || process.env.GITHUB_TOKEN;
+            if (!token) {
+                core.setFailed('No GitHub token provided. Please set the GITHUB_TOKEN secret.');
+                return;
+            }
+            const octokit = github.getOctokit(token);
             // Parse form fields from issue body
             const formFields = parseIssueBody(issue.body || '');
             // Prepare ADR content with specific form fields
+            const contributors = yield getContributors(octokit, issue);
+            const contributorsList = contributors.map(user => `@${user}`).join(', ');
             const adrContent = `
-# ADR: ${issue.title}
+# ${issue.title}
 
 ## Status
 ${adrStatus.charAt(0).toUpperCase() + adrStatus.slice(1)}
+
+## Contributors
+${contributorsList}
 
 ## Context
 ${formFields.context || 'No context provided.'}
@@ -153,12 +203,10 @@ ${formFields.references ? `## References\n${formFields.references}` : ''}
             fs.writeFileSync(filePath, adrContent.trim());
             core.info(`ADR file created: ${filePath}`);
             // Replace the Git commands with GitHub API calls
-            const token = core.getInput('github_token') || process.env.GITHUB_TOKEN;
             if (!token) {
                 core.setFailed('No GitHub token provided. Please set the GITHUB_TOKEN secret.');
                 return;
             }
-            const octokit = github.getOctokit(token);
             const { owner, repo } = github.context.repo;
             // Get the current commit SHA to use as a base
             const { data: refData } = yield octokit.rest.git.getRef({
