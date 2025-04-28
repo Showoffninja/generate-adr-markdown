@@ -4,6 +4,27 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
 
+// Parse the issue body to extract form fields
+function parseIssueBody(body: string): Record<string, string> {
+  const fields: Record<string, string> = {};
+  
+  // Look for each field heading in the form response
+  const fieldRegexes = {
+    'context': /### Context\s+([\s\S]*?)(?=###|$)/,
+    'decision': /### Decision\s+([\s\S]*?)(?=###|$)/,
+    'consequences': /### Consequences\s+([\s\S]*?)(?=###|$)/,
+    'alternatives': /### Alternatives Considered\s+([\s\S]*?)(?=###|$)/,
+    'references': /### References\s+([\s\S]*?)(?=###|$)/
+  };
+  
+  for (const [field, regex] of Object.entries(fieldRegexes)) {
+    const match = body.match(regex);
+    fields[field] = match ? match[1].trim() : '';
+  }
+  
+  return fields;
+}
+
 function getNextSequenceNumber(folder: string): string {
   // Ensure the folder exists
   if (!fs.existsSync(folder)) {
@@ -63,7 +84,10 @@ async function run() {
     // Determine the next sequence number
     const nextSequenceNumber = getNextSequenceNumber(statusFolder);
 
-    // Prepare ADR content
+    // Parse form fields from issue body
+    const formFields = parseIssueBody(issue.body || '');
+
+    // Prepare ADR content with specific form fields
     const adrContent = `
 # ADR: ${issue.title}
 
@@ -71,13 +95,17 @@ async function run() {
 ${adrStatus.charAt(0).toUpperCase() + adrStatus.slice(1)}
 
 ## Context
-${issue.body}
+${formFields.context || 'No context provided.'}
 
 ## Decision
-// Describe the decision made.
+${formFields.decision || 'No decision provided.'}
 
 ## Consequences
-// Describe the consequences of this decision.
+${formFields.consequences || 'No consequences provided.'}
+
+${formFields.alternatives ? `## Alternatives Considered\n${formFields.alternatives}` : ''}
+
+${formFields.references ? `## References\n${formFields.references}` : ''}
 `;
 
     // Sanitize the issue title for use in the filename
