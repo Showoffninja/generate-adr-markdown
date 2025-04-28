@@ -3,7 +3,7 @@ name: Generate ADR Markdown
 on:
   issues:
     types:
-      - labeled
+      - closed
 
 permissions:
   contents: write
@@ -11,6 +11,7 @@ permissions:
 jobs:
   create-adr:
     runs-on: ubuntu-latest
+    if: contains(github.event.issue.labels.*.name, 'ADR')
 
     steps:
       - name: Checkout repository
